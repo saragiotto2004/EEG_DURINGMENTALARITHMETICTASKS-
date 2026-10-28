@@ -114,7 +114,7 @@ for i = 1:length(subject_files)
     EEG = pop_eegfiltnew(EEG, 'locutoff', 49, 'hicutoff', 51, 'revfilt', 1);
 
     % ICA su tutti i canali ricomposti
-    EEG = pop_runica(EEG, 'icatype', 'runica', 'extended', 1, 'verbose', 'off');
+    % EEG = pop_runica(EEG, 'icatype', 'runica', 'extended', 1, 'verbose', 'off');
 
     % --- 4. RITAGLIO E SEGMENTAZIONE (Epoching 2s) ---
     max_pnts = min(EEG.pnts, target_duration * srate);
