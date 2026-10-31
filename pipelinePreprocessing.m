@@ -1,9 +1,9 @@
 %% =========================================================================
-%% PIPELINE DI PREPROCESSING EEG - BIOLOGICAL SIGNAL PROCESSING (BSP)
+%% PREPROCESSING EEG PIPELINE - BIOLOGICAL SIGNAL AND IMAGE PROCESSING PROJECT
 %% =========================================================================
 clear; clc; close all;
 
-%% 1. CONFIGURAZIONE PERCORSI
+%% 1. PATH CONFIGURATION
 script_dir = fileparts(mfilename('fullpath'));
 if isempty(script_dir), script_dir = pwd; end
 cd(script_dir);
@@ -15,12 +15,12 @@ output_folder = fullfile(script_dir, 'Output');
 if exist(helper_folder, 'dir')
     addpath(helper_folder);
 else
-    error('Cartella "helper_code" non trovata!');
+    error('Folder "helper_code" not found!');
 end
 
 if ~exist(output_folder, 'dir'), mkdir(output_folder); end
 
-%% 2. INIZIALIZZAZIONE AUTOMATICA EEGLAB
+%% 2. AUTOMATIC EEGLAB INITIALIZATION
 if ispc, user_home = getenv('USERPROFILE'); else, user_home = getenv('HOME'); end
 desktop_dir = fullfile(user_home, 'Desktop');
 
@@ -41,32 +41,33 @@ elseif ~isempty(eeglab_path) && exist(eeglab_path, 'dir')
     addpath(eeglab_path);
     [ALLEEG, EEG, CURRENTSET, ALLCOM] = eeglab('nogui'); 
 else
-    error('EEGLAB non trovato!');
+    error('EEGLAB not found!');
 end
 
-%% 3. CARICAMENTO CHANLOCS (Coordinate Elettrodi)
+%% 3. LOADING CHANLOCS (Electrode coordinates)
 chanlocs_path = fullfile(helper_folder, 'chanlocs.mat');
 if exist(chanlocs_path, 'file')
     chanlocs_data = load(chanlocs_path);
     fields = fieldnames(chanlocs_data);
     chanlocs = chanlocs_data.(fields{1});
-    fprintf('chanlocs.mat caricato correttamente.\n');
+    fprintf('chanlocs.mat loaded successfully.\n');
 else
-    error('File chanlocs.mat non trovato nella cartella helper_code!');
+    error('File chanlocs.mat not found in the helper_code folder!');
 end
 
-%% 4. PARAMETRI DI PREPROCESSING
+%% 4. PREPROCESSING PARAMETERS
 srate     = 500;  % Hz
-epoch_dur = 2;    % secondi per sotto-epoca
+epoch_dur = 2;    % seconds per sub-epoch
 v_thresh  = 80;   % uV
 
 subject_files = dir(fullfile(data_folder, 'Subject*.mat'));
-if isempty(subject_files), error('Nessun file .mat trovato nella cartella Data!'); end
+if isempty(subject_files), error('No .mat files found in the Data folder!'); end
 
-fprintf('Trovati %d file di dati da elaborare.\n\n', length(subject_files));
+fprintf('Found %d data files to process.\n\n', length(subject_files));
 rejection_summary = table();
 eeglab; close;
-%% 5. CICLO DI PREPROCESSING (CON RICOMPOSIZIONE CANALI MULTIPLI)
+
+%% 5. PREPROCESSING LOOP (with multi-channel reconstruction)
 for i = 1:length(subject_files)
     file_name = subject_files(i).name;
     file_path = fullfile(data_folder, file_name);
@@ -82,7 +83,7 @@ for i = 1:length(subject_files)
     
     fprintf('[%d/%d] Preprocessing [%s]: %s...\n', i, length(subject_files), condition_type, file_name);
     
-    % --- 1. RICOMPOSIZIONE CANALI SEPARATI IN MATRICE 2D ---
+    % --- 1. RECONSTRUCTING SEPARATE CHANNELS INTO A 2D MATRIX  ---
     subj_data = load(file_path);
     var_names = fieldnames(subj_data);
     
@@ -95,28 +96,26 @@ for i = 1:length(subject_files)
         data_matrix = [data_matrix; ch_data]; %#ok<AGROW>
     end
     
-    % --- 2. IMPORTAZIONE IN EEGLAB CON CORRISPONDENZA CHANLOCS ---
+    % --- 2. IMPORTING INTO EEGLAB WITH CHANLOCS CORRESPONDENCE ---
     EEG = pop_importdata('dataformat', 'array', ...
                          'data', data_matrix, ...
                          'srate', srate, ...
                          'nbchan', size(data_matrix, 1));
 
-    % Assegna i dati dei canali e controlla corrispondenza
+    % CHANNEL DATA ASSIGNMENT AND CORRESPONDENCE CHECK
     EEG.chanlocs = chanlocs(1:size(data_matrix, 1));
     EEG = eeg_checkset(EEG);
 
-    % --- 3. PASSI DI PREPROCESSING ---
+    % --- 3. PREPROCESSING STEPS ---
     % Re-referencing (Average Reference)
     EEG = pop_reref(EEG, []);
 
-    % Passa-banda (0.5 - 45 Hz) e Notch (50 Hz)
+    % Band-pass (0.5 - 45 Hz) and Notch (50 Hz)
     EEG = pop_eegfiltnew(EEG, 'locutoff', 0.5, 'hicutoff', 45);
     EEG = pop_eegfiltnew(EEG, 'locutoff', 49, 'hicutoff', 51, 'revfilt', 1);
 
-    % ICA su tutti i canali ricomposti
-    % EEG = pop_runica(EEG, 'icatype', 'runica', 'extended', 1, 'verbose', 'off');
 
-    % --- 4. RITAGLIO E SEGMENTAZIONE (Epoching 2s) ---
+    % --- 4. DATA TRIMMING AND EPOCHING (2s Epochs) ---
     max_pnts = min(EEG.pnts, target_duration * srate);
     data_trimmed = EEG.data(:, 1:max_pnts);
     
@@ -126,7 +125,7 @@ for i = 1:length(subject_files)
     
     data_3d = reshape(data_trimmed, [EEG.nbchan, pnts_epoch, n_epochs]);
     
-    % Reiezione sotto-epoche > +/- 80 uV
+    % Rejection of sub-epochs > +/- 80 uV
     valid_idx = squeeze(all(all(abs(data_3d) <= v_thresh, 1), 2));
     clean_data = data_3d(:, :, valid_idx);
     
@@ -134,33 +133,34 @@ for i = 1:length(subject_files)
     rejected_epochs = n_epochs - num_epochs_kept;
     rejection_rate  = (rejected_epochs / n_epochs) * 100;
 
-    % Registrazione statistiche
+    % RECORDING STATISTICS
     new_entry = table({base_name}, {condition_type}, n_epochs, num_epochs_kept, ...
                       rejected_epochs, rejection_rate, ...
                       'VariableNames', {'Subject', 'Condition', 'InitialEpochs', 'KeptEpochs', 'RejectedEpochs', 'RejectionRatePct'});
     rejection_summary = [rejection_summary; new_entry];
 
-    % --- 5. SALVATAGGIO DEI RISULTATI ---
+    % --- 5. SAVING PREPROCESSED DATA  ---
     mat_output_path = fullfile(output_folder, sprintf('%s_preprocessed.mat', base_name));
     save(mat_output_path, 'clean_data', 'base_name', 'condition_type', 'srate', 'num_epochs_kept');
-    
+
+    % Optional Visual Quality Control (QC): Generate and save mean EEG power topoplot
     if num_epochs_kept > 0
         mean_power = mean(mean(clean_data.^2, 2), 3);
         f = figure('Visible', 'off');
         topoplot(mean_power, EEG.chanlocs, 'maplimits', 'maxmin', 'electrodes', 'on');
-        title(sprintf('Potenza EEG [%s] - %s', condition_type, base_name), 'Interpreter', 'none');
+        title(sprintf('EEG Power [%s] - %s', condition_type, base_name), 'Interpreter', 'none');
         colorbar;
         saveas(f, fullfile(output_folder, sprintf('%s_topoplot.png', base_name)));
         close(f);
     end
 
-    fprintf('  -> Completato! Salvate %d epoche pulite su %d (Scartate: %.1f%%).\n\n', ...
+    fprintf('  -> Completed! %d clean epochs out of %d (Rejected: %.1f%%).\n\n', ...
             num_epochs_kept, n_epochs, rejection_rate);
 end
 
-% Salvataggio report
-writetable(rejection_summary, fullfile(output_folder, 'Report_Reiezione_Epoche.csv'));
+% Saving report
+writetable(rejection_summary, fullfile(output_folder, 'Rejection_Epochs_Report.csv'));
 
 fprintf('=================================================================\n');
-fprintf('Preprocessing completato con successo per tutti i soggetti!\n');
+fprintf('Preprocessing completed successfully for all subjects!\n');
 fprintf('=================================================================\n');
