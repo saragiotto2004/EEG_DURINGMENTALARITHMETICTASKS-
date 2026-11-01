@@ -176,28 +176,28 @@ for k = 1:numel(pot)
         pT = pot{k}(subj_num == s & cond == "T");
         pR = pR(1:n_min(s));
         pT = pT(1:n_min(s));
-        
+
         plot(movmean(pR, smooth_w), '-o', 'Color', colR, 'MarkerSize', 3, 'DisplayName', 'R');
         plot(movmean(pT, smooth_w), '-o', 'Color', colT, 'MarkerSize', 3, 'DisplayName', 'T');
         yline(mean(pR), '--', 'Color', colR, 'HandleVisibility', 'off');
         yline(mean(pT), '--', 'Color', colT, 'HandleVisibility', 'off');
-        
+
         xlim([1 n_min(s)]);
-        title({sprintf('Soggetto %d (%d epoche)', s, n_min(s)), ...
-               sprintf('R: med = %.3g, IQR = %.3g', med_v(k,s,1), iqr_v(k,s,1)), ...
-               sprintf('T: med = %.3g, IQR = %.3g', med_v(k,s,2), iqr_v(k,s,2))}, ...
-               'FontSize', 8, 'FontWeight', 'normal');
-        xlabel('Epoca'); ylabel('Potenza (unit^2/Hz)');
+        title({sprintf('Subject %d (%d epochs)', s, n_min(s)), ...
+            sprintf('R: med = %.3g, IQR = %.3g', med_v(k,s,1), iqr_v(k,s,1)), ...
+            sprintf('T: med = %.3g, IQR = %.3g', med_v(k,s,2), iqr_v(k,s,2))}, ...
+            'FontSize', 8, 'FontWeight', 'normal');
+        xlabel('Epoch'); ylabel('Power (unit^2/Hz)');
         if s == 1, legend('Location', 'best'); end
         grid on; box off;
     end
-    
+
     if numel(canali{k}) == n_ch
-        ch_str = 'tutti i canali';
+        ch_str = 'all channels';
     else
         selected_names = valid_labels(canali{k});
-        ch_str = ['canali ' char(strjoin(string(selected_names), ', '))];
+        ch_str = ['channels ' char(strjoin(string(selected_names), ', '))];
     end
-    
-    sgtitle(sprintf('%s - potenza per epoca, R vs T (%s)', nomi{k}, ch_str));
+
+    sgtitle(sprintf('%s - power per epoch, R vs T (%s)', nomi{k}, ch_str));
 end
