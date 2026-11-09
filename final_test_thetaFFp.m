@@ -3,7 +3,8 @@ clc;
 
 % The ultimate goal is to process EEG signals, extract significant features
 % (physiological characteristics) and compare the two conditions to identify how 
-% brain activity changes during cognitive load.
+% brain activity changes during cognitive load, specifically examining frontal(F) and 
+% frontopolar(Fp) Theta channels alongside Alpha.
 
 % STATISTICAL ANALYSIS AND COMPARISON BETWEEN CONDITIONS
 % Variation of Alpha and Theta between Rest (R) and Task (T): R/T ratio,
@@ -103,9 +104,9 @@ writetable(summary, xlsx_file, 'Sheet', 'Summary');
 writetable(all_tbl, fullfile(output_dir, 'Alpha_Theta_RT.csv'));
 fprintf('\nSaved in "%s": Alpha_Theta_RT.xlsx and .csv\n', output_dir);
 
-% RESULTS VISUALIZATION (Unified Theta and Alpha)
+% RESULTS VISUALIZATION (Unified Theta [Frontal/Frontopolar] and Alpha)
 ch_alpha = [11 10 13 19];
-ch_theta = [2 1 6]; % Frontal and Frontopolar
+ch_theta = [2 1 6]; % Frontal and Frontopolar Theta channels
 smooth_w = 1;               
 
 % Power per epoch, averaged over selected channels (using getBand)
