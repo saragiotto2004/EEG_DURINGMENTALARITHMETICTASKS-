@@ -1,4 +1,4 @@
-% Mappe scalpali (topoplot) della potenza di banda: R e poi T
+% Scalp maps (topoplot) of band power: R and then T
 output_dir = 'Output';
 load(fullfile(output_dir, 'Extracted_Features_Theta.mat'), ...
     'T_features', 'channel_labels', 'valid_labels', 'chanlocs');
@@ -7,22 +7,22 @@ n_ch = numel(channel_labels);
 use_dB   = true;
 bandList = {'Theta', 'Alpha'};
 
-% chanlocs: deve essere una struct con le coordinate degli elettrodi
+% chanlocs: must be a struct with electrode coordinates
 if istable(chanlocs), chanlocs = table2struct(chanlocs); end
 if numel(chanlocs) ~= n_ch
-    error('chanlocs ha %d canali, i dati %d.', numel(chanlocs), n_ch);
+    error('chanlocs has %d channels, data has %d.', numel(chanlocs), n_ch);
 end
 has_coords = (isfield(chanlocs, 'theta') && ~all(cellfun(@isempty, {chanlocs.theta}))) || ...
              (isfield(chanlocs, 'X')     && ~all(cellfun(@isempty, {chanlocs.X})));
 
-% Condizione e soggetti
+% Condition and subjects
 cond     = extractBefore(upper(string(T.Condition)), 2);  cond = cond(:);
 isR      = cond == "R";
 subj_num = cumsum([true; isR(2:end) & ~isR(1:end-1)]);
 n_subj   = max(subj_num);
-fprintf('Soggetti individuati: %d\n', n_subj);
+fprintf('Subjects identified: %d\n', n_subj);
 
-% Potenza media per soggetto, condizione, banda, canale
+% Average power per subject, condition, band, channel
 % P(s, c, b, ch): c = 1 (R), 2 (T)
 condLab = ["R","T"];
 P = nan(n_subj, 2, numel(bandList), n_ch);
@@ -38,7 +38,7 @@ for s = 1:n_subj
     end
 end
 
-% Conversione in dB e etichetta dell'unità
+% Conversion to dB and unit label
 if use_dB
     P = 10*log10(P);
     unitLabel = 'dB (10 log_{10})';
@@ -46,13 +46,13 @@ else
     unitLabel = 'unit^2/Hz';
 end
 
-% Figure
+% Figures
 condNames = {'R (rest)', 'T (task)'};
 for s = 1:n_subj
-    figure('Color','w','Name',sprintf('Soggetto %d',s),'Position',[100 50 800 600]);
+    figure('Color','w','Name',sprintf('Subject %d',s),'Position',[100 50 800 600]);
     for b = 1:numel(bandList)
-        vals = squeeze(P(s,:,b,:));                  % [2 x n_ch]
-        lim  = [min(vals(:)) max(vals(:))];          % scala comune a R e T
+        vals = squeeze(P(s,:,b,:));               % [2 x n_ch]
+        lim  = [min(vals(:)) max(vals(:))];          % common scale for R and T
         for c = 1:2
             subplot(numel(bandList), 2, (b-1)*2 + c);
             topoplot(squeeze(P(s,c,b,:))', chanlocs, 'maplimits', lim, ...
@@ -63,5 +63,5 @@ for s = 1:n_subj
             title(sprintf('%s - %s', bandList{b}, condNames{c}));
         end
     end
-    sgtitle(sprintf('Soggetto %d - potenza di banda: R e T', s));
+    sgtitle(sprintf('Subject %d - band power: R and T', s));
 end
