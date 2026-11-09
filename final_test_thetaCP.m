@@ -1,36 +1,36 @@
 clear;
 clc;
 
-% L'obiettivo finale è processare i segnali EEG, estrarre delle feature significative
-% (caratteristiche fisiologiche) e confrontare le due condizioni per identificare come 
-% cambia l'attività cerebrale durante il carico cognitivo.
+% The ultimate goal is to process EEG signals, extract significant features
+% (physiological characteristics) and compare the two conditions to identify how 
+% brain activity changes during cognitive load.
 
-% ANALISI STATISTICA E CONFRONTO TRA LE CONDIZIONI
-% Variazione di Alpha e Theta tra Rest (R) e Task (T): rapporto R/T,
-% per soggetto e per canale, con indicazione del canale che presenta la massima variazione.
-% N.B. per Alpha indico il valore più grande di R/T (dove la potenza di T è diminuita di più),
-% mentre per Theta indico il valore più piccolo di R/T (dove T è aumentata di più).
+% STATISTICAL ANALYSIS AND COMPARISON BETWEEN CONDITIONS
+% Variation of Alpha and Theta between Rest (R) and Task (T): R/T ratio,
+% per subject and per channel, indicating the channel with the maximum variation.
+% Note: for Alpha, I indicate the largest value of R/T (where T power decreased the most),
+% while for Theta, I indicate the smallest value of R/T (where T increased the most).
 
 output_dir = 'Output';
 load(fullfile(output_dir, 'Extracted_Features_Theta.mat'), 'T_features', 'valid_labels');
 T = T_features;
 
-% Numero di canali 
+% Number of channels 
 vn = T.Properties.VariableNames;
 n_ch = sum(startsWith(vn, 'Ch') & endsWith(vn, '_Delta'));
 
-% Condizione: R o T 
+% Condition: R or T 
 cond = extractBefore(upper(string(T.Condition)), 2);
 cond = cond(:);
 
-% Divido i dati nei soggetti
+% Split data into subjects
 isR = cond == "R";
 newSubj = [true; isR(2:end) & ~isR(1:end-1)];
 subj_num = cumsum(newSubj);
 n_subj = max(subj_num);
 
 getBand = @(ch, b) T.(sprintf('%s_%s', valid_labels{ch}, b));
-% Calcolo e visualizzazione
+% Calculation and visualization
 results = cell(n_subj, 1);
 summary = table();
 
@@ -51,7 +51,7 @@ for s = 1:n_subj
         Theta_RT(ch) = mean(theta(iR)) / mean(theta(iT));  
     end
     
-    % Alpha: R/T massimo, Theta: R/T minimo
+    % Alpha: maximum R/T, Theta: minimum R/T
     [~, iA]  = max(Alpha_RT);
     [~, iTh] = min(Theta_RT);
     
@@ -60,10 +60,10 @@ for s = 1:n_subj
     
     results{s} = table(Channel, Alpha_RT, Alpha_Max, Theta_RT, Theta_Min);
     
-    fprintf('\n---------- SOGGETTO %d ----------\n', s);
+    fprintf('\n---------- SUBJECT %d ----------\n', s);
     disp(results{s});
     
-    % Controllo di sicurezza e creazione riga di sommario
+    % Safety check and summary row creation
     if isempty(iA) || isempty(iTh)
         ch_a = ""; val_a = NaN;
         ch_t = ""; val_t = NaN;
@@ -76,7 +76,7 @@ for s = 1:n_subj
         'VariableNames', {'Subject', 'Alpha_CanaleMax', 'Alpha_RT_Max', ...
                           'Theta_CanaleMin', 'Theta_RT_Min'});
                       
-    % Accumulo sicuro nella tabella di riepilogo (corretto qui)
+    % Safe accumulation in the summary table
     if isempty(summary)
         summary = current_row;
     else
@@ -84,31 +84,31 @@ for s = 1:n_subj
     end
 end
 
-fprintf('\n---------- RIEPILOGO PER SOGGETTO ----------\n');
+fprintf('\n---------- SUMMARY BY SUBJECT ----------\n');
 disp(summary);
 
-% Salvataggio dei file di output
+% Saving output files
 xlsx_file = fullfile(output_dir, 'Alpha_Theta_RT.xlsx');
 if exist(xlsx_file, 'file'), delete(xlsx_file); end
 
 all_tbl = table();
 for s = 1:n_subj
-    writetable(results{s}, xlsx_file, 'Sheet', sprintf('Soggetto_%d', s));
+    writetable(results{s}, xlsx_file, 'Sheet', sprintf('Subject_%d', s));
     tmp = results{s};
     tmp.Subject = repmat(s, height(tmp), 1);
     all_tbl = [all_tbl; movevars(tmp, 'Subject', 'Before', 'Channel')]; 
 end
 
-writetable(summary, xlsx_file, 'Sheet', 'Riepilogo');
+writetable(summary, xlsx_file, 'Sheet', 'Summary');
 writetable(all_tbl, fullfile(output_dir, 'Alpha_Theta_RT.csv'));
-fprintf('\nSalvato in "%s": Alpha_Theta_RT.xlsx e .csv\n', output_dir);
+fprintf('\nSaved in "%s": Alpha_Theta_RT.xlsx and .csv\n', output_dir);
 
-% VISUALIZZAZIONE RISULTATI (Theta unico e Alpha)
+% RESULTS VISUALIZATION (Unified Theta and Alpha)
 ch_alpha = [11 10 13 19];
-ch_theta = [10 9 19]; % Centrali e Parietali
+ch_theta = [10 9 19]; % Central and Parietal
 smooth_w = 1;               
 
-% Potenza per epoca, media sui canali selezionati (usando getBand)
+% Power per epoch, averaged over selected channels (using getBand)
 theta_p = zeros(height(T), 1);
 for ch = ch_theta
     theta_p = theta_p + getBand(ch, 'Theta') / numel(ch_theta);
@@ -123,19 +123,19 @@ pot    = {theta_p, alpha_p};
 nomi   = {'Theta', 'Alpha'};
 canali = {ch_theta, ch_alpha};
 
-colR = [0.2 0.5 0.8];   
+colR = [0.2 0.5 0.8];    
 colT = [0.85 0.35 0.2];
 
-% Numero minimo di epoche per ogni soggetto (tra R e T) 
+% Minimum number of epochs for each subject (between R and T) 
 n_min = zeros(n_subj, 1);
 for s = 1:n_subj
     nR = sum(subj_num == s & cond == "R");
     nT = sum(subj_num == s & cond == "T");
     n_min(s) = min(nR, nT);
-    fprintf('Soggetto %d: R = %d epoche, T = %d epoche -> uso le prime %d\n', s, nR, nT, n_min(s));
+    fprintf('Subject %d: R = %d epochs, T = %d epochs -> using first %d\n', s, nR, nT, n_min(s));
 end
 
-%mediana e range interquartile 
+% Median and interquartile range 
 med_v = nan(numel(pot), n_subj, 2);  
 iqr_v = nan(numel(pot), n_subj, 2);
 cond_list = ["R", "T"];
@@ -156,18 +156,18 @@ for k = 1:numel(pot)
     end
 end
 
-fprintf('\n---------- MEDIANA E IQR DELLA POTENZA (unit^2/Hz) ----------\n');
+fprintf('\n---------- MEDIAN AND IQR OF POWER (unit^2/Hz) ----------\n');
 for k = 1:numel(pot)
     fprintf('\n=== %s ===\n', nomi{k});
     for s = 1:n_subj
-        fprintf('Soggetto %d | R: mediana = %.4g, IQR = %.4g | T: mediana = %.4g, IQR = %.4g\n', ...
+        fprintf('Subject %d | R: median = %.4g, IQR = %.4g | T: median = %.4g, IQR = %.4g\n', ...
             s, med_v(k,s,1), iqr_v(k,s,1), med_v(k,s,2), iqr_v(k,s,2));
     end
 end
 disp(stats_tbl);
 writetable(stats_tbl, fullfile(output_dir, 'Mediana_IQR_CP.csv'));
 
-% Figure per Theta e Alpha
+% Figures for Theta and Alpha
 for k = 1:numel(pot)
     figure('Color', 'w', 'Position', [100 100 1100 600], 'Name', nomi{k});
     for s = 1:n_subj
