@@ -1,4 +1,5 @@
 %% =========================================================================
+%% Cariello Rossella, Chiolini Martina, Giotto Sara, Spaggiari Martina, Spiller Anna
 %% PREPROCESSING EEG PIPELINE - BIOLOGICAL SIGNAL AND IMAGE PROCESSING PROJECT
 %% =========================================================================
 clear; clc; close all;
